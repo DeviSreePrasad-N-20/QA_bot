@@ -1,0 +1,18 @@
+# Environment & secrets
+.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.Python
+*.egg-info/
+
+# Vector database (regenerate locally with `python -m src.ingest`)
+db/
+
+# OS / editor cruft
+.DS_Store
+.vscode/
+.idea/
