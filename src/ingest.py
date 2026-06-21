@@ -307,6 +307,21 @@ def save_to_vector_db(chunks: list[dict], rebuild: bool = False) -> int:
     return total_indexed
 
 
+def ensure_vector_db(chunk_size: int = config.CHUNK_SIZE, chunk_overlap: int = config.CHUNK_OVERLAP) -> int:
+    """Build the vector database on demand when it doesn't exist yet."""
+    if config.DB_DIR.exists() and any(config.DB_DIR.iterdir()):
+        return 0
+
+    pages = discover_and_extract()
+    if not pages:
+        raise RuntimeError(
+            f"No supported documents (.pdf, .docx) found in {config.DATA_DIR}"
+        )
+
+    chunks = chunk_extracted_pages(pages, chunk_size, chunk_overlap)
+    return save_to_vector_db(chunks, rebuild=False)
+
+
 # ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------

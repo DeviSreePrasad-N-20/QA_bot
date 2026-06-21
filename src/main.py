@@ -16,6 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src import config
+from src.ingest import ensure_vector_db
 from src.query import query_rag_pipeline
 
 
@@ -26,6 +27,17 @@ def _is_streamlit_runtime() -> bool:
         return get_script_run_ctx() is not None
     except Exception:
         return False
+
+
+def _ensure_db_for_cli() -> None:
+    """Create the vector DB automatically on first run."""
+    if config.DB_DIR.exists() and any(config.DB_DIR.iterdir()):
+        return
+
+    print(f"\n[info] No vector database found at '{config.DB_DIR}'.")
+    print('[info] Indexing documents from the data directory...')
+    indexed = ensure_vector_db()
+    print(f"[info] Indexed {indexed} chunk(s).\n")
 
 
 # ---------------------------------------------------------------------------
@@ -43,9 +55,11 @@ def run_cli():
         print(f"\n[error] {e}")
         sys.exit(1)
 
-    if not config.DB_DIR.exists() or not any(config.DB_DIR.iterdir()):
-        print(f"\n[warning] No vector database found at '{config.DB_DIR}'.")
-        print("Run `python -m src.ingest` first to index your documents.\n")
+    try:
+        _ensure_db_for_cli()
+    except RuntimeError as e:
+        print(f"\n[error] {e}")
+        sys.exit(1)
 
     while True:
         try:
@@ -97,10 +111,13 @@ def run_streamlit_app():
         st.stop()
 
     if not config.DB_DIR.exists() or not any(config.DB_DIR.iterdir()):
-        st.warning(
-            f"No vector database found at `{config.DB_DIR}`. "
-            "Run `python -m src.ingest` first to index your documents."
-        )
+        with st.spinner("Indexing documents for first-time setup..."):
+            try:
+                indexed = ensure_vector_db()
+            except RuntimeError as e:
+                st.error(str(e))
+                st.stop()
+        st.success(f"Indexed {indexed} chunk(s) from the bundled documents.")
 
     if "history" not in st.session_state:
         st.session_state.history = []
